@@ -51,6 +51,12 @@ variable "existing_aks_rg" {
   default     = ""
 }
 
+variable "kube_config_path" {
+  description = "Path to kubeconfig file (set in CI after az aks get-credentials)"
+  type        = string
+  default     = ""
+}
+
 # ------------------------------------------------------------------------------
 # Backstage Helm Configuration
 # ------------------------------------------------------------------------------

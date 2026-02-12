@@ -57,7 +57,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Terraform Azure auth: use ARM_* env vars (avoids Azure CLI conflict with Service Principal)
+      # Azure Login: needed for az aks get-credentials (Kubernetes/Helm providers need cluster access)
+      - name: Azure Login (OIDC)
+        if: ${{ github.event.inputs.use_client_secret != 'true' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Azure Login (Client Secret)
+        if: ${{ github.event.inputs.use_client_secret == 'true' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      # Terraform Azure auth: ARM_* takes precedence over Azure CLI for Terraform backend/provider
       - name: Configure Terraform Azure auth
         run: |
           echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
@@ -97,12 +115,14 @@ jobs:
           echo "backstage_ingress_host=${INGRESS}" >> $GITHUB_OUTPUT
           if [ -n "${INGRESS}" ]; then echo "backstage_ingress_enabled=true" >> $GITHUB_OUTPUT; else echo "backstage_ingress_enabled=false" >> $GITHUB_OUTPUT; fi
 
-      - name: Terraform Plan
+      - name: Terraform Apply (Phase 1a - random_password when using existing AKS)
+        if: ${{ steps.tfvars.outputs.deploy_aks == 'false' }}
         working-directory: ./terraform
         env:
           TF_VAR_postgresql_password: ${{ secrets.POSTGRESQL_PASSWORD }}
         run: |
-          terraform plan -no-color -out=tfplan \
+          terraform apply -auto-approve \
+            -target=random_password.postgresql \
             -var="resource_group_name=${{ steps.tfvars.outputs.resource_group }}" \
             -var="deploy_aks=${{ steps.tfvars.outputs.deploy_aks }}" \
             -var="existing_aks_name=${{ steps.tfvars.outputs.existing_aks_name }}" \
@@ -110,11 +130,58 @@ jobs:
             -var="location=${{ steps.tfvars.outputs.location }}" \
             -var="backstage_ingress_host=${{ steps.tfvars.outputs.backstage_ingress_host }}" \
             -var="backstage_ingress_enabled=${{ steps.tfvars.outputs.backstage_ingress_enabled }}" \
-            -var="postgresql_password=${TF_VAR_postgresql_password:-}" 2>&1 | tee plan.txt
+            -var="postgresql_password=${TF_VAR_postgresql_password:-}"
 
-      - name: Terraform Apply
+      - name: Terraform Apply (Phase 1b - AKS infrastructure)
+        if: ${{ steps.tfvars.outputs.deploy_aks == 'true' }}
         working-directory: ./terraform
-        run: terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_postgresql_password: ${{ secrets.POSTGRESQL_PASSWORD }}
+        run: |
+          terraform apply -auto-approve \
+            -target=azurerm_resource_group.main \
+            -target=azurerm_kubernetes_cluster.main \
+            -target=random_password.postgresql \
+            -var="resource_group_name=${{ steps.tfvars.outputs.resource_group }}" \
+            -var="deploy_aks=${{ steps.tfvars.outputs.deploy_aks }}" \
+            -var="existing_aks_name=${{ steps.tfvars.outputs.existing_aks_name }}" \
+            -var="existing_aks_rg=${{ steps.tfvars.outputs.existing_aks_rg }}" \
+            -var="location=${{ steps.tfvars.outputs.location }}" \
+            -var="backstage_ingress_host=${{ steps.tfvars.outputs.backstage_ingress_host }}" \
+            -var="backstage_ingress_enabled=${{ steps.tfvars.outputs.backstage_ingress_enabled }}" \
+            -var="postgresql_password=${TF_VAR_postgresql_password:-}"
+
+      - name: Get AKS credentials
+        run: |
+          if [ "${{ steps.tfvars.outputs.deploy_aks }}" = "true" ]; then
+            az aks get-credentials \
+              --resource-group ${{ steps.tfvars.outputs.resource_group }} \
+              --name backstage-aks \
+              --file $HOME/.kube/config
+          else
+            az aks get-credentials \
+              --resource-group ${{ steps.tfvars.outputs.existing_aks_rg }} \
+              --name ${{ steps.tfvars.outputs.existing_aks_name }} \
+              --file $HOME/.kube/config
+          fi
+          echo "KUBE_CONFIG_PATH=$HOME/.kube/config" >> $GITHUB_ENV
+
+      - name: Terraform Apply (Phase 2 - Backstage)
+        working-directory: ./terraform
+        env:
+          TF_VAR_postgresql_password: ${{ secrets.POSTGRESQL_PASSWORD }}
+          TF_VAR_kube_config_path: ${{ env.KUBE_CONFIG_PATH }}
+        run: |
+          terraform apply -auto-approve \
+            -var="resource_group_name=${{ steps.tfvars.outputs.resource_group }}" \
+            -var="deploy_aks=${{ steps.tfvars.outputs.deploy_aks }}" \
+            -var="existing_aks_name=${{ steps.tfvars.outputs.existing_aks_name }}" \
+            -var="existing_aks_rg=${{ steps.tfvars.outputs.existing_aks_rg }}" \
+            -var="location=${{ steps.tfvars.outputs.location }}" \
+            -var="backstage_ingress_host=${{ steps.tfvars.outputs.backstage_ingress_host }}" \
+            -var="backstage_ingress_enabled=${{ steps.tfvars.outputs.backstage_ingress_enabled }}" \
+            -var="postgresql_password=${TF_VAR_postgresql_password:-}" \
+            -var="kube_config_path=$HOME/.kube/config"
 
       - name: Output Deployment Info
         working-directory: ./terraform

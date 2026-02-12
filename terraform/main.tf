@@ -56,19 +56,30 @@ data "azurerm_kubernetes_cluster" "existing" {
   resource_group_name = var.existing_aks_rg
 }
 
+# Use kubeconfig file when set (CI); otherwise use AKS credentials from data source
+locals {
+  use_kubeconfig = var.kube_config_path != ""
+  kube_host      = var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host
+  kube_client_cert = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
+  kube_client_key  = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
+  kube_ca_cert     = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
+}
+
 provider "kubernetes" {
-  host                   = var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host
-  client_certificate     = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
-  client_key             = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
-  cluster_ca_certificate = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
+  config_path = local.use_kubeconfig ? var.kube_config_path : null
+  host        = local.use_kubeconfig ? null : local.kube_host
+  client_certificate = local.use_kubeconfig ? null : local.kube_client_cert
+  client_key             = local.use_kubeconfig ? null : local.kube_client_key
+  cluster_ca_certificate = local.use_kubeconfig ? null : local.kube_ca_cert
 }
 
 provider "helm" {
   kubernetes {
-    host                   = var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host
-    client_certificate     = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
-    client_key             = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
-    cluster_ca_certificate = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
+    config_path = local.use_kubeconfig ? var.kube_config_path : null
+    host        = local.use_kubeconfig ? null : local.kube_host
+    client_certificate = local.use_kubeconfig ? null : local.kube_client_cert
+    client_key             = local.use_kubeconfig ? null : local.kube_client_key
+    cluster_ca_certificate = local.use_kubeconfig ? null : local.kube_ca_cert
   }
 }
 
