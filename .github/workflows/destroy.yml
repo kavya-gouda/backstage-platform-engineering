@@ -1,5 +1,6 @@
 # Destroy Backstage and optionally AKS
 # Trigger: manual only (safety)
+# Setup: See .github/GITHUB_ACTIONS_SETUP.md for Azure OIDC and secrets
 name: Destroy Backstage
 
 on:
@@ -43,11 +44,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Azure Login (OIDC)
+        if: ${{ !secrets.AZURE_CLIENT_SECRET }}
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Azure Login (Client Secret)
+        if: ${{ secrets.AZURE_CLIENT_SECRET }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3

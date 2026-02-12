@@ -66,6 +66,8 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 
 ## GitHub Actions CI/CD
 
+> **Full setup guide:** See [.github/GITHUB_ACTIONS_SETUP.md](.github/GITHUB_ACTIONS_SETUP.md) for step-by-step instructions (Azure OIDC, Terraform remote state, secrets).
+
 ### Setup Required Secrets
 
 In your GitHub repo: **Settings → Secrets and variables → Actions**, add:
