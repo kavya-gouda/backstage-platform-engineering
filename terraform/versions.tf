@@ -25,10 +25,10 @@ terraform {
   }
 
   # Uncomment and configure for remote state (recommended for team use)
-  # backend "azurerm" {
-  #   resource_group_name  = "tfstate-rg"
-  #   storage_account_name = "tfstateaccount"
-  #   container_name       = "tfstate"
-  #   key                  = "backstage-platform.terraform.tfstate"
-  # }
+  backend "azurerm" {
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "tfstatebackstagekavya"
+    container_name       = "tfstate"
+    key                  = "backstage-platform.terraform.tfstate"
+  }
 }
