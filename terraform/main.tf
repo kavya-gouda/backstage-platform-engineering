@@ -104,7 +104,7 @@ locals {
 resource "helm_release" "backstage" {
   name             = var.backstage_release_name
   namespace        = kubernetes_namespace.backstage.metadata[0].name
-  repository       = "oci://ghcr.io/backstage/charts/backstage"
+  repository       = "https://backstage.github.io/charts"
   chart            = "backstage"
   version          = var.backstage_chart_version
   create_namespace = false
