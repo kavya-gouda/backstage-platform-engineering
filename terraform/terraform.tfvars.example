@@ -1,0 +1,46 @@
+# Copy to terraform.tfvars and customize. Never commit terraform.tfvars with secrets.
+
+# ------------------------------------------------------------------------------
+# Deployment mode: true = create new AKS, false = use existing AKS
+# ------------------------------------------------------------------------------
+deploy_aks = true
+
+# ------------------------------------------------------------------------------
+# New AKS (when deploy_aks = true)
+# ------------------------------------------------------------------------------
+resource_group_name = "rg-backstage-platform"
+location            = "eastus"
+aks_cluster_name    = "backstage-aks"
+aks_node_count      = 2
+aks_vm_size         = "Standard_D2s_v3"
+
+# ------------------------------------------------------------------------------
+# Existing AKS (when deploy_aks = false)
+# ------------------------------------------------------------------------------
+# existing_aks_name = "my-existing-cluster"
+# existing_aks_rg   = "my-resource-group"
+
+# ------------------------------------------------------------------------------
+# Backstage
+# ------------------------------------------------------------------------------
+backstage_namespace   = "backstage"
+backstage_release_name = "backstage"
+backstage_chart_version = "2.6.3"
+backstage_image_tag   = "latest"
+
+# PostgreSQL - set via env: export TF_VAR_postgresql_password="your-secure-password"
+# Or use empty for auto-generated (stored in Terraform state)
+postgresql_enabled = true
+
+# Ingress - enable for developer access via URL
+backstage_ingress_enabled = false
+backstage_ingress_host    = ""  # e.g., backstage.yourdomain.com
+
+# ------------------------------------------------------------------------------
+# Tags
+# ------------------------------------------------------------------------------
+tags = {
+  Environment = "dev"
+  Project     = "backstage-platform"
+  ManagedBy   = "terraform"
+}

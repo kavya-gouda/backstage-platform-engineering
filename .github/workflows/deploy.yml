@@ -1,0 +1,110 @@
+# Deploy Backstage to AKS
+# Trigger: manual (workflow_dispatch) or push to main (optional)
+name: Deploy Backstage to AKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      resource_group:
+        description: 'Resource group name'
+        required: true
+        default: 'rg-backstage-platform'
+      deploy_aks:
+        description: 'Deploy new AKS (true) or use existing (false)'
+        required: true
+        default: true
+        type: boolean
+      existing_aks_name:
+        description: 'Existing AKS name (when deploy_aks=false)'
+        required: false
+        default: ''
+      existing_aks_rg:
+        description: 'Existing AKS resource group (when deploy_aks=false)'
+        required: false
+        default: ''
+      location:
+        description: 'Azure region'
+        required: true
+        default: 'eastus'
+      backstage_ingress_host:
+        description: 'Ingress hostname (e.g., backstage.example.com)'
+        required: false
+        default: ''
+  # Optional: auto-deploy on push to main
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'terraform/**'
+  #     - '.github/workflows/deploy.yml'
+
+env:
+  TF_VERSION: '1.5.0'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # For OIDC with Azure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Format Check
+        working-directory: ./terraform
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Prepare Terraform Variables
+        id: tfvars
+        run: |
+          RG="${{ github.event.inputs.resource_group }}"
+          INGRESS="${{ github.event.inputs.backstage_ingress_host }}"
+          echo "resource_group=${RG:-rg-backstage-platform}" >> $GITHUB_OUTPUT
+          echo "deploy_aks=${{ github.event.inputs.deploy_aks }}" >> $GITHUB_OUTPUT
+          echo "existing_aks_name=${{ github.event.inputs.existing_aks_name }}" >> $GITHUB_OUTPUT
+          echo "existing_aks_rg=${{ github.event.inputs.existing_aks_rg }}" >> $GITHUB_OUTPUT
+          echo "location=${{ github.event.inputs.location }}" >> $GITHUB_OUTPUT
+          echo "backstage_ingress_host=${INGRESS}" >> $GITHUB_OUTPUT
+          if [ -n "${INGRESS}" ]; then echo "backstage_ingress_enabled=true" >> $GITHUB_OUTPUT; else echo "backstage_ingress_enabled=false" >> $GITHUB_OUTPUT; fi
+
+      - name: Terraform Plan
+        working-directory: ./terraform
+        env:
+          TF_VAR_postgresql_password: ${{ secrets.POSTGRESQL_PASSWORD }}
+        run: |
+          terraform plan -no-color -out=tfplan \
+            -var="resource_group_name=${{ steps.tfvars.outputs.resource_group }}" \
+            -var="deploy_aks=${{ steps.tfvars.outputs.deploy_aks }}" \
+            -var="existing_aks_name=${{ steps.tfvars.outputs.existing_aks_name }}" \
+            -var="existing_aks_rg=${{ steps.tfvars.outputs.existing_aks_rg }}" \
+            -var="location=${{ steps.tfvars.outputs.location }}" \
+            -var="backstage_ingress_host=${{ steps.tfvars.outputs.backstage_ingress_host }}" \
+            -var="backstage_ingress_enabled=${{ steps.tfvars.outputs.backstage_ingress_enabled }}" \
+            -var="postgresql_password=${TF_VAR_postgresql_password:-}" 2>&1 | tee plan.txt
+
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Output Deployment Info
+        working-directory: ./terraform
+        run: terraform output -json

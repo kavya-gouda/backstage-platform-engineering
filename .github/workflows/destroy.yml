@@ -1,0 +1,88 @@
+# Destroy Backstage and optionally AKS
+# Trigger: manual only (safety)
+name: Destroy Backstage
+
+on:
+  workflow_dispatch:
+    inputs:
+      resource_group:
+        description: 'Resource group name (must match deployed)'
+        required: true
+        default: 'rg-backstage-platform'
+      deploy_aks:
+        description: 'Was AKS deployed by this automation? (true = destroy cluster too)'
+        required: true
+        default: true
+        type: boolean
+      existing_aks_name:
+        description: 'Existing AKS name (when deploy_aks=false)'
+        required: false
+        default: ''
+      existing_aks_rg:
+        description: 'Existing AKS resource group (when deploy_aks=false)'
+        required: false
+        default: ''
+      confirm_destroy:
+        description: 'Type DESTROY to confirm'
+        required: true
+        type: string
+
+env:
+  TF_VERSION: '1.5.0'
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: ./terraform
+        env:
+          TF_VAR_resource_group_name: ${{ github.event.inputs.resource_group }}
+          TF_VAR_deploy_aks: ${{ github.event.inputs.deploy_aks }}
+          TF_VAR_existing_aks_name: ${{ github.event.inputs.existing_aks_name || '' }}
+          TF_VAR_existing_aks_rg: ${{ github.event.inputs.existing_aks_rg || '' }}
+          TF_VAR_postgresql_password: ${{ secrets.POSTGRESQL_PASSWORD }}
+        run: |
+          terraform destroy -auto-approve \
+            -var="resource_group_name=$TF_VAR_resource_group_name" \
+            -var="deploy_aks=$TF_VAR_deploy_aks" \
+            -var="existing_aks_name=$TF_VAR_existing_aks_name" \
+            -var="existing_aks_rg=$TF_VAR_existing_aks_rg" \
+            -var="postgresql_password=$TF_VAR_postgresql_password"
+
+      - name: Destroy Complete
+        run: echo "Backstage and infrastructure destroyed successfully."
+
+  abort:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm_destroy != 'DESTROY' }}
+    steps:
+      - name: Abort - Invalid confirmation
+        run: |
+          echo "Destroy aborted. You must type 'DESTROY' (exact) in confirm_destroy to proceed."
+          exit 1

@@ -1,0 +1,37 @@
+# Backstage Helm values - customize for your environment
+# Used by Terraform and scripts. Override via terraform.tfvars or CI/CD vars.
+
+backstage:
+  replicas: 1
+  image:
+    registry: ghcr.io
+    repository: backstage/backstage
+    tag: latest
+  appConfig:
+    app:
+      title: "Backstage Developer Portal"
+      baseUrl: "http://localhost:7007"  # Override with ingress URL in production
+    backend:
+      baseUrl: "http://localhost:7007"
+      listen:
+        port: 7007
+
+# Enable built-in PostgreSQL for dev/demo (disable for production with external DB)
+postgresql:
+  enabled: true
+  auth:
+    username: bn_backstage
+    password: ""  # Set via TF_VAR_postgresql_password or --set
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# Ingress - enable for external developer access
+ingress:
+  enabled: false
+  className: nginx
+  host: ""
+  tls:
+    enabled: false
+    secretName: ""
