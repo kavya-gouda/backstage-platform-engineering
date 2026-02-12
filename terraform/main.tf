@@ -5,8 +5,6 @@ provider "azurerm" {
   features {}
 }
 
-data "azurerm_client_config" "current" {}
-
 # ------------------------------------------------------------------------------
 # Resource Group (always created for new AKS; optional for existing)
 # ------------------------------------------------------------------------------
@@ -57,12 +55,13 @@ data "azurerm_kubernetes_cluster" "existing" {
 }
 
 # Use kubeconfig file when set (CI); otherwise use AKS credentials from data source
+# When use_kubeconfig is true, avoid evaluating data sources (cluster may not exist during destroy)
 locals {
   use_kubeconfig = var.kube_config_path != ""
-  kube_host      = var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host
-  kube_client_cert = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
-  kube_client_key  = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
-  kube_ca_cert     = base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
+  kube_host      = local.use_kubeconfig ? null : (var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host)
+  kube_client_cert = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
+  kube_client_key  = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
+  kube_ca_cert     = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
 }
 
 provider "kubernetes" {
