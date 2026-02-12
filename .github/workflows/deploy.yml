@@ -57,24 +57,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Azure Login: OIDC (default) or client-secret when use_client_secret=true
-      - name: Azure Login (OIDC)
-        if: ${{ github.event.inputs.use_client_secret != 'true' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Azure Login (Client Secret)
-        if: ${{ github.event.inputs.use_client_secret == 'true' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-
+      # Terraform Azure auth: use ARM_* env vars (avoids Azure CLI conflict with Service Principal)
       - name: Configure Terraform Azure auth
         run: |
           echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
