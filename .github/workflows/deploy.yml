@@ -31,6 +31,11 @@ on:
         description: 'Ingress hostname (e.g., backstage.example.com)'
         required: false
         default: ''
+      use_client_secret:
+        description: 'Use AZURE_CLIENT_SECRET instead of OIDC'
+        required: false
+        default: false
+        type: boolean
   # Optional: auto-deploy on push to main
   # push:
   #   branches: [main]
@@ -52,9 +57,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Azure Login: OIDC (default) or client-secret if AZURE_CLIENT_SECRET is set
+      # Azure Login: OIDC (default) or client-secret when use_client_secret=true
       - name: Azure Login (OIDC)
-        if: ${{ !secrets.AZURE_CLIENT_SECRET }}
+        if: ${{ github.event.inputs.use_client_secret != 'true' }}
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -62,7 +67,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Azure Login (Client Secret)
-        if: ${{ secrets.AZURE_CLIENT_SECRET }}
+        if: ${{ github.event.inputs.use_client_secret == 'true' }}
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}

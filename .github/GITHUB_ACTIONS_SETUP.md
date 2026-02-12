@@ -82,6 +82,8 @@ echo "Subscription ID: $(az account show --query id -o tsv)"
 
 ### 2b. Create Service Principal and Assign Roles
 
+**Via Azure CLI:**
+
 ```bash
 # Create service principal
 az ad sp create --id $CLIENT_ID
@@ -94,9 +96,20 @@ az role assignment create \
   --scope "/subscriptions/$SUBSCRIPTION_ID"
 ```
 
+**Via Azure Portal** (use if CLI returns `MissingSubscription`—common with free/trial subscriptions):
+
+1. Go to [Azure Portal](https://portal.azure.com) → **Subscriptions** → select your subscription
+2. Click **Access control (IAM)** in the left menu
+3. Click **Add** → **Add role assignment**
+4. **Role** tab: select **Contributor** → **Next**
+5. **Members** tab: choose **User, group, or service principal** → **+ Select members**
+6. Search by your app name (e.g., `github-actions-backstage`) or Application (client) ID → select it → **Review + assign**
+
+To scope to a resource group instead: go to **Resource groups** → select the group → **Access control (IAM)** → follow steps 3–6.
+
 ### 2c. Add Federated Credential (OIDC Trust)
 
-Replace placeholders with your values:
+Replace placeholders with your values. Newer Azure CLI versions require `--parameters`:
 
 ```bash
 # Your GitHub org/repo
@@ -105,13 +118,32 @@ GITHUB_REPO="backstage-platform-engineering"
 
 az ad app federated-credential create \
   --id $CLIENT_ID \
-  --name "github-actions" \
-  --issuer "https://token.actions.githubusercontent.com" \
-  --subject "repo:${GITHUB_ORG}/${GITHUB_REPO}:ref:refs/heads/main" \
-  --audiences "api://AzureADTokenExchange"
+  --parameters '{
+    "name": "github-actions",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:'"${GITHUB_ORG}/${GITHUB_REPO}"':ref:refs/heads/main",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
 ```
 
-For multiple branches or environment-specific deployments, add more federated credentials with different `--subject` values (e.g., `repo:org/repo:environment:production`).
+**Alternative: JSON file** (useful on Windows if inline JSON causes quoting issues):
+
+Create `credential.json`:
+```json
+{
+  "name": "github-actions",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}
+```
+
+Then run:
+```bash
+az ad app federated-credential create --id $CLIENT_ID --parameters credential.json
+```
+
+For multiple branches or environment-specific deployments, add more federated credentials with different `subject` values (e.g., `repo:org/repo:environment:production`).
 
 ---
 
@@ -175,7 +207,7 @@ If OIDC is not an option, you can use a client secret:
 1. In Azure Portal → App registration → **Certificates & secrets** → **New client secret**
 2. Copy the secret value
 3. Add `AZURE_CLIENT_SECRET` to GitHub Secrets
-4. Update the workflow's Azure Login step to use `client-secret` instead of OIDC (see workflow comments)
+4. When running the workflow, check **Use AZURE_CLIENT_SECRET instead of OIDC** in the "Run workflow" form (or set `use_client_secret` to `true`)
 
 **Note:** Client secrets expire and require rotation. OIDC is recommended for production.
 
@@ -185,6 +217,8 @@ If OIDC is not an option, you can use a client secret:
 
 | Issue | Solution |
 |-------|----------|
+| `MissingSubscription` when assigning role via CLI | Use Azure Portal instead (Step 2b). Common with free/trial subscriptions. |
+| `the following arguments are required: --parameters` (federated credential) | Newer Azure CLI uses `--parameters` with JSON. See Step 2c for updated command. |
 | "Failed to get OIDC token" | Ensure `id-token: write` permission is in the workflow. Verify federated credential subject matches `repo:org/repo:ref:refs/heads/main` |
 | "Backend initialization required" | Configure remote backend in `terraform/versions.tf` (Step 1) |
 | "Error acquiring state lock" | Another run may be in progress. Wait or force-unlock via Terraform CLI |
