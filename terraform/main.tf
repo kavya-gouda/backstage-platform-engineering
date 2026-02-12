@@ -139,6 +139,12 @@ resource "helm_release" "backstage" {
     value = var.postgresql_enabled
   }
 
+  # Allow unauthenticated catalog access for demo/vanilla Backstage (no auth provider configured)
+  set {
+    name  = "backstage.appConfig.backend.auth.dangerouslyDisableDefaultAuthPolicy"
+    value = "true"
+  }
+
   set {
     name  = "ingress.enabled"
     value = var.backstage_ingress_enabled
