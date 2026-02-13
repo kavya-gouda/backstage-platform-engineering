@@ -25,7 +25,7 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 
 1. **Terraform remote state** – Create Azure Storage for state (required for CI)
 2. **Azure OIDC** – Create service principal and federated credential
-3. **GitHub secrets** – Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and optionally `POSTGRESQL_PASSWORD`
+3. **GitHub secrets** – Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and optionally `POSTGRESQL_PASSWORD`, `BACKSTAGE_OAUTH_CLIENT_ID`, `BACKSTAGE_OAUTH_CLIENT_SECRET` (for GitHub sign-in)
 
 ## Deploy
 

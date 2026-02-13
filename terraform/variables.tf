@@ -117,7 +117,7 @@ variable "backstage_base_url_override" {
 variable "github_auth_enabled" {
   description = "Enable GitHub OAuth sign-in"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "github_client_id" {

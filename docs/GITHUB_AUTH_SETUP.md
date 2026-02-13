@@ -17,7 +17,23 @@ Follow these steps to enable GitHub sign-in for Backstage.
 3. Click **Register application**
 4. Generate a **Client secret** and save both **Client ID** and **Client secret**
 
-## Step 2: Configure Terraform
+## Step 2: Add GitHub Secrets (for GitHub Actions)
+
+Go to your repo: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+| Secret | Value |
+|--------|-------|
+| `BACKSTAGE_OAUTH_CLIENT_ID` | Your GitHub OAuth App Client ID |
+| `BACKSTAGE_OAUTH_CLIENT_SECRET` | Your GitHub OAuth App Client Secret |
+
+## Step 3: Deploy via GitHub Actions
+
+1. Go to **Actions** → **Deploy Backstage to AKS** → **Run workflow**
+2. Check **Enable GitHub OAuth sign-in**
+3. If using LoadBalancer, set **Base URL for OAuth callback** to `http://<EXTERNAL-IP>:7007` (get EXTERNAL-IP from a previous deploy: `kubectl get svc -n backstage`)
+4. Run the workflow
+
+## Alternative: Local Terraform
 
 Set the variables (via `terraform.tfvars` or environment):
 
@@ -27,7 +43,15 @@ github_client_id     = "your-client-id"
 github_client_secret = "your-client-secret"
 ```
 
-**Important:** When using LoadBalancer with a dynamic IP, you must also set:
+Or use env vars (don't commit secrets):
+
+```bash
+export TF_VAR_github_client_id="your-client-id"
+export TF_VAR_github_client_secret="your-client-secret"
+terraform apply -var="github_auth_enabled=true"
+```
+
+**Important:** When using LoadBalancer with a dynamic IP, set:
 
 ```hcl
 backstage_base_url_override = "http://<EXTERNAL-IP>:7007"
@@ -35,7 +59,7 @@ backstage_base_url_override = "http://<EXTERNAL-IP>:7007"
 
 Replace `<EXTERNAL-IP>` with the output of `kubectl get svc -n backstage` (or `terraform output backstage_loadbalancer_ip`). The callback URL in the GitHub OAuth App must match this exactly.
 
-## Step 3: Apply and Restart
+## Step 4: Apply and Restart
 
 ```bash
 cd terraform
@@ -43,7 +67,7 @@ terraform apply -auto-approve
 kubectl rollout restart deployment/backstage -n backstage
 ```
 
-## Step 4: Sign In
+## Step 5: Sign In
 
 Open Backstage and click **Sign in** → **GitHub**. Complete the OAuth flow.
 
