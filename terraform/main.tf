@@ -61,7 +61,7 @@ locals {
   kube_host                = local.use_kubeconfig ? null : (var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host)
   use_loadbalancer         = !var.backstage_ingress_enabled && var.backstage_service_loadbalancer
   backstage_service_type   = (var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "ClusterIP" : (local.use_loadbalancer ? "LoadBalancer" : "ClusterIP")
-  backstage_base_url       = (var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "https://${var.backstage_ingress_host}" : "http://localhost:7007"
+  backstage_base_url       = var.backstage_base_url_override != "" ? var.backstage_base_url_override : ((var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "https://${var.backstage_ingress_host}" : "http://localhost:7007")
   kube_client_cert = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
   kube_client_key  = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
   kube_ca_cert     = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
@@ -95,6 +95,25 @@ resource "kubernetes_namespace" "backstage" {
       "app.kubernetes.io/managed-by" = "terraform"
     }
   }
+}
+
+# ------------------------------------------------------------------------------
+# GitHub OAuth credentials secret (when github_auth_enabled)
+# ------------------------------------------------------------------------------
+resource "kubernetes_secret" "github_auth" {
+  count = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? 1 : 0
+
+  metadata {
+    name      = "${var.backstage_release_name}-github-auth"
+    namespace = kubernetes_namespace.backstage.metadata[0].name
+  }
+
+  data = {
+    AUTH_GITHUB_CLIENT_ID     = var.github_client_id
+    AUTH_GITHUB_CLIENT_SECRET = var.github_client_secret
+  }
+
+  type = "Opaque"
 }
 
 # ------------------------------------------------------------------------------
@@ -142,11 +161,53 @@ resource "helm_release" "backstage" {
     value = var.postgresql_enabled
   }
 
-  # Allow unauthenticated catalog access for demo/vanilla Backstage (no auth provider configured)
+  # Auth: disable default policy when GitHub auth enabled; allow guest access otherwise
   set {
     name  = "backstage.appConfig.backend.auth.dangerouslyDisableDefaultAuthPolicy"
-    value = "true"
+    value = var.github_auth_enabled ? "false" : "true"
   }
+
+  dynamic "set" {
+    for_each = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [1] : []
+    content {
+      name  = "backstage.appConfig.auth.environment"
+      value = "development"
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [1] : []
+    content {
+      name  = "backstage.appConfig.auth.providers.github.development.clientId"
+      value = "$${AUTH_GITHUB_CLIENT_ID}"
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [1] : []
+    content {
+      name  = "backstage.appConfig.auth.providers.github.development.clientSecret"
+      value = "$${AUTH_GITHUB_CLIENT_SECRET}"
+    }
+  }
+
+  # Inject GitHub auth env vars and sign-in config from values file
+  values = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [
+    <<-EOT
+    backstage:
+      extraEnvVarsSecrets:
+        - secretRef:
+            name: ${kubernetes_secret.github_auth[0].metadata[0].name}
+      appConfig:
+        auth:
+          providers:
+            github:
+              development:
+                signIn:
+                  resolvers:
+                    - resolver: usernameMatchingUserEntityName
+    EOT
+  ] : []
 
   # Backstage needs time for DB migrations and plugin loading on first startup
   set {

@@ -108,6 +108,31 @@ variable "backstage_service_loadbalancer" {
   default     = true
 }
 
+variable "backstage_base_url_override" {
+  description = "Override baseUrl (required for GitHub OAuth when using LoadBalancer - use http://<EXTERNAL-IP>:7007)"
+  type        = string
+  default     = ""
+}
+
+variable "github_auth_enabled" {
+  description = "Enable GitHub OAuth sign-in"
+  type        = bool
+  default     = false
+}
+
+variable "github_client_id" {
+  description = "GitHub OAuth App Client ID (when github_auth_enabled)"
+  type        = string
+  default     = ""
+}
+
+variable "github_client_secret" {
+  description = "GitHub OAuth App Client Secret (when github_auth_enabled)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "postgresql_enabled" {
   description = "Deploy PostgreSQL as subchart (recommended for dev/demo)"
   type        = bool

@@ -42,6 +42,11 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 | `deploy_aks` | `true` | Create new AKS or use existing cluster |
 | `location` | `eastus` | Azure region |
 | `backstage_ingress_host` | - | Hostname for external access (e.g., backstage.example.com) |
+| `github_auth_enabled` | `false` | Enable GitHub OAuth sign-in |
+| `github_client_id` | - | GitHub OAuth App Client ID |
+| `github_client_secret` | - | GitHub OAuth App Client Secret (use secret) |
+
+> **GitHub auth setup:** See [docs/GITHUB_AUTH_SETUP.md](docs/GITHUB_AUTH_SETUP.md) for OAuth App creation and callback URL configuration.
 
 ## Destroy
 
