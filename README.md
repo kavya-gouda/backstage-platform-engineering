@@ -96,6 +96,10 @@ backstage-platform-engineering/
 └── README.md
 ```
 
+## Troubleshooting
+
+- **Blank page:** See [docs/BLANK_PAGE_TROUBLESHOOTING.md](docs/BLANK_PAGE_TROUBLESHOOTING.md) if Backstage loads but shows a blank white screen.
+
 ## References
 
 - [Backstage Documentation](https://backstage.io/docs)

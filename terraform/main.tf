@@ -275,6 +275,12 @@ resource "helm_release" "backstage" {
     name  = "backstage.appConfig.backend.baseUrl"
     value = local.backstage_base_url
   }
+
+  # Ensure backend listens on all interfaces (required for LoadBalancer / external access)
+  set {
+    name  = "backstage.appConfig.backend.listen"
+    value = ":7007"
+  }
 }
 
 # ------------------------------------------------------------------------------
