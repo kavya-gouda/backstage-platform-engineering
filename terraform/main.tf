@@ -278,8 +278,12 @@ resource "helm_release" "backstage" {
 
   # Ensure backend listens on all interfaces (required for LoadBalancer / external access)
   set {
-    name  = "backstage.appConfig.backend.listen"
-    value = ":7007"
+    name  = "backstage.appConfig.backend.listen.address"
+    value = "0.0.0.0"
+  }
+  set {
+    name  = "backstage.appConfig.backend.listen.port"
+    value = 7007
   }
 }
 
