@@ -39,9 +39,13 @@ jobs:
           CI: "true"
           BACKSTAGE_APP_NAME: "backstage-app"
         run: |
-          npx @backstage/create-app@latest
+          npx @backstage/create-app@latest --skip-install
 
-      - name: Add production app-config overrides
+      - name: Install dependencies
+        if: steps.check.outputs.exists == 'false'
+        working-directory: ./backstage-app
+        run: |
+          yarn install
         if: steps.check.outputs.exists == 'false'
         working-directory: ./backstage-app
         run: |
