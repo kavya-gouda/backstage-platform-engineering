@@ -57,8 +57,9 @@ data "azurerm_kubernetes_cluster" "existing" {
 # Use kubeconfig file when set (CI); otherwise use AKS credentials from data source
 # When use_kubeconfig is true, avoid evaluating data sources (cluster may not exist during destroy)
 locals {
-  use_kubeconfig = var.kube_config_path != ""
-  kube_host      = local.use_kubeconfig ? null : (var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host)
+  use_kubeconfig      = var.kube_config_path != ""
+  kube_host           = local.use_kubeconfig ? null : (var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host)
+  backstage_base_url  = (var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "https://${var.backstage_ingress_host}" : "http://localhost:7007"
   kube_client_cert = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
   kube_client_key  = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
   kube_ca_cert     = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
@@ -145,6 +146,16 @@ resource "helm_release" "backstage" {
     value = "true"
   }
 
+  # Backstage needs time for DB migrations and plugin loading on first startup
+  set {
+    name  = "backstage.readinessProbe.initialDelaySeconds"
+    value = "120"
+  }
+  set {
+    name  = "backstage.readinessProbe.periodSeconds"
+    value = "15"
+  }
+
   set {
     name  = "ingress.enabled"
     value = var.backstage_ingress_enabled
@@ -174,19 +185,15 @@ resource "helm_release" "backstage" {
     }
   }
 
-  dynamic "set" {
-    for_each = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? [1] : []
-    content {
-      name  = "backstage.appConfig.app.baseUrl"
-      value = "https://${var.backstage_ingress_host}"
-    }
+  # Required: backend.baseUrl is mandatory for Backstage startup (discovery, auth)
+  # Use ingress host when configured; otherwise http://localhost:7007 for port-forward access
+  set {
+    name  = "backstage.appConfig.app.baseUrl"
+    value = local.backstage_base_url
   }
 
-  dynamic "set" {
-    for_each = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? [1] : []
-    content {
-      name  = "backstage.appConfig.backend.baseUrl"
-      value = "https://${var.backstage_ingress_host}"
-    }
+  set {
+    name  = "backstage.appConfig.backend.baseUrl"
+    value = local.backstage_base_url
   }
 }

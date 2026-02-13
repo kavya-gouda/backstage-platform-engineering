@@ -1,0 +1,18 @@
+---
+description: Backstage AKS deployment patterns (Terraform, Helm)
+globs: terraform/**/*.tf,terraform/**/*.tfvars*,helm/**/*.yaml,.github/workflows/*.yml
+alwaysApply: false
+---
+
+# Backstage Platform Deployment
+
+## Terraform & Helm
+
+- **Readiness probe**: Backstage needs 2+ minutes for DB migrations and plugin loading. Set `backstage.readinessProbe.initialDelaySeconds = 120` to avoid 503 loops.
+- **PostgreSQL secret**: Use `postgresql.auth.existingSecret` with a Kubernetes secret containing `user-password` and `admin-password` keys (Bitnami chart expects these).
+- **Auth for demo**: `backstage.appConfig.backend.auth.dangerouslyDisableDefaultAuthPolicy: true` allows unauthenticated catalog access when no auth provider is configured.
+
+## Troubleshooting
+
+- **Readiness 503**: Check `kubectl logs deploy/backstage -c backstage-backend --tail=2000` for startup errors. Ensure DB connectivity and migrations complete.
+- **PostgreSQL secret error**: Delete stale `backstage-postgresql` secret if switching to `existingSecret`. Terraform-managed secret must have keys `user-password` and `admin-password`.
