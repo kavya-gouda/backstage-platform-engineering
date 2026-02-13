@@ -196,8 +196,7 @@ resource "helm_release" "backstage" {
     <<-EOT
     backstage:
       extraEnvVarsSecrets:
-        - secretRef:
-            name: ${kubernetes_secret.github_auth[0].metadata[0].name}
+        - ${kubernetes_secret.github_auth[0].metadata[0].name}
       appConfig:
         auth:
           providers:
