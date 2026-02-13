@@ -44,6 +44,8 @@ jobs:
       - name: Install dependencies
         if: steps.check.outputs.exists == 'false'
         working-directory: ./backstage-app
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
         run: yarn install
 
       - name: Add production app-config overrides
