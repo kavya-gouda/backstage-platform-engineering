@@ -29,9 +29,13 @@ Go to your repo: **Settings** → **Secrets and variables** → **Actions** → 
 ## Step 3: Deploy via GitHub Actions
 
 1. Go to **Actions** → **Deploy Backstage to AKS** → **Run workflow**
-2. Check **Enable GitHub OAuth sign-in**
-3. If using LoadBalancer, set **Base URL for OAuth callback** to `http://<EXTERNAL-IP>:7007` (get EXTERNAL-IP from a previous deploy: `kubectl get svc -n backstage`)
-4. Run the workflow
+2. Run once (without GitHub auth) to create the cluster
+3. After deploy, get the nip.io URL from the output, e.g. `http://backstage.20.123.45.67.nip.io:7007`
+4. Create GitHub OAuth App at [github.com/settings/developers](https://github.com/settings/developers):
+   - **Homepage URL**: `http://backstage.<YOUR-IP>.nip.io:7007`
+   - **Authorization callback URL**: `http://backstage.<YOUR-IP>.nip.io:7007/api/auth/github/handler/frame`
+5. Add `BACKSTAGE_OAUTH_CLIENT_ID` and `BACKSTAGE_OAUTH_CLIENT_SECRET` to repo secrets (Step 2)
+6. Re-run deploy with **Enable GitHub OAuth sign-in** checked
 
 ## Alternative: Local Terraform
 
@@ -59,7 +63,7 @@ backstage_base_url_override = "http://<EXTERNAL-IP>:7007"
 
 Replace `<EXTERNAL-IP>` with the output of `kubectl get svc -n backstage` (or `terraform output backstage_loadbalancer_ip`). The callback URL in the GitHub OAuth App must match this exactly.
 
-## Step 4: Apply and Restart
+## Step 5: Apply and Restart (local Terraform only)
 
 ```bash
 cd terraform
@@ -67,9 +71,19 @@ terraform apply -auto-approve
 kubectl rollout restart deployment/backstage -n backstage
 ```
 
-## Step 5: Sign In
+## Step 6: Sign In
 
 Open Backstage and click **Sign in** → **GitHub**. Complete the OAuth flow.
+
+## PostgreSQL secret fix
+
+If you see `The secret "backstage-postgresql" does not contain the key "user-password"`, delete the old secret and re-apply:
+
+```bash
+kubectl delete secret backstage-postgresql -n backstage --ignore-not-found
+```
+
+Then re-run the deploy workflow or `terraform apply`.
 
 ## Troubleshooting
 

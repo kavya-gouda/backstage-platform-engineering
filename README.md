@@ -41,7 +41,7 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 | `resource_group` | `rg-backstage-platform` | Azure resource group name |
 | `deploy_aks` | `true` | Create new AKS or use existing cluster |
 | `location` | `eastus` | Azure region |
-| `backstage_ingress_host` | - | Hostname for external access (e.g., backstage.example.com) |
+| `backstage_ingress_host` | - | (Optional) Custom domain; leave empty to use LoadBalancer + nip.io |
 | `github_auth_enabled` | `false` | Enable GitHub OAuth sign-in |
 | `github_client_id` | - | GitHub OAuth App Client ID |
 | `github_client_secret` | - | GitHub OAuth App Client Secret (use secret) |

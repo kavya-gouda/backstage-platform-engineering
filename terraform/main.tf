@@ -117,16 +117,27 @@ resource "kubernetes_secret" "github_auth" {
 }
 
 # ------------------------------------------------------------------------------
-# Random password for PostgreSQL if not provided
+# PostgreSQL credentials secret (Bitnami chart expects user-password + admin-password)
 # ------------------------------------------------------------------------------
-resource "random_password" "postgresql" {
-  count   = var.postgresql_enabled && var.postgresql_password == "" ? 1 : 0
-  length  = 24
-  special = true
+locals {
+  postgresql_password = "backstage-postgres-dev"
 }
 
-locals {
-  postgresql_password = var.postgresql_enabled ? (var.postgresql_password != "" ? var.postgresql_password : random_password.postgresql[0].result) : ""
+resource "kubernetes_secret" "postgresql" {
+  count = var.postgresql_enabled ? 1 : 0
+
+  metadata {
+    name      = "${var.backstage_release_name}-postgresql-credentials"
+    namespace = kubernetes_namespace.backstage.metadata[0].name
+  }
+
+  data = {
+    "user-password"  = local.postgresql_password
+    "admin-password" = local.postgresql_password
+    "password"       = local.postgresql_password # Backstage app connection
+  }
+
+  type = "Opaque"
 }
 
 # ------------------------------------------------------------------------------
@@ -143,11 +154,11 @@ resource "helm_release" "backstage" {
   wait             = true
   timeout          = 600
 
-  dynamic "set_sensitive" {
+  dynamic "set" {
     for_each = var.postgresql_enabled ? [1] : []
     content {
-      name  = "postgresql.auth.password"
-      value = local.postgresql_password
+      name  = "postgresql.auth.existingSecret"
+      value = kubernetes_secret.postgresql[0].metadata[0].name
     }
   }
 

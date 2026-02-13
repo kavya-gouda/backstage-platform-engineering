@@ -27,19 +27,11 @@ on:
         description: 'Azure region'
         required: true
         default: 'eastus'
-      backstage_ingress_host:
-        description: 'Ingress hostname (e.g., backstage.example.com)'
-        required: false
-        default: ''
       github_auth_enabled:
         description: 'Enable GitHub OAuth sign-in (requires BACKSTAGE_OAUTH_CLIENT_ID, BACKSTAGE_OAUTH_CLIENT_SECRET secrets)'
         required: false
         default: false
         type: boolean
-      backstage_base_url_override:
-        description: 'Base URL for OAuth callback (e.g., http://<EXTERNAL-IP>:7007 when using LoadBalancer)'
-        required: false
-        default: ''
       use_client_secret:
         description: 'Use AZURE_CLIENT_SECRET instead of OIDC'
         required: false
@@ -114,17 +106,15 @@ jobs:
       - name: Prepare Terraform Variables
         id: tfvars
         run: |
-          RG="${{ github.event.inputs.resource_group }}"
-          INGRESS="${{ github.event.inputs.backstage_ingress_host }}"
-          echo "resource_group=${RG:-rg-backstage-platform}" >> $GITHUB_OUTPUT
+          echo "resource_group=${{ github.event.inputs.resource_group || 'rg-backstage-platform' }}" >> $GITHUB_OUTPUT
           echo "deploy_aks=${{ github.event.inputs.deploy_aks }}" >> $GITHUB_OUTPUT
           echo "existing_aks_name=${{ github.event.inputs.existing_aks_name }}" >> $GITHUB_OUTPUT
           echo "existing_aks_rg=${{ github.event.inputs.existing_aks_rg }}" >> $GITHUB_OUTPUT
           echo "location=${{ github.event.inputs.location }}" >> $GITHUB_OUTPUT
-          echo "backstage_ingress_host=${INGRESS}" >> $GITHUB_OUTPUT
-          if [ -n "${INGRESS}" ]; then echo "backstage_ingress_enabled=true" >> $GITHUB_OUTPUT; else echo "backstage_ingress_enabled=false" >> $GITHUB_OUTPUT; fi
+          echo "backstage_ingress_host=" >> $GITHUB_OUTPUT
+          echo "backstage_ingress_enabled=false" >> $GITHUB_OUTPUT
           echo "github_auth_enabled=${{ github.event.inputs.github_auth_enabled }}" >> $GITHUB_OUTPUT
-          echo "backstage_base_url_override=${{ github.event.inputs.backstage_base_url_override }}" >> $GITHUB_OUTPUT
+          echo "backstage_base_url_override=" >> $GITHUB_OUTPUT
 
       - name: Terraform Apply (Phase 1a - random_password when using existing AKS)
         if: ${{ steps.tfvars.outputs.deploy_aks == 'false' }}
@@ -212,6 +202,50 @@ jobs:
             -var="postgresql_password=${TF_VAR_postgresql_password:-}" \
             -var="kube_config_path=$HOME/.kube/config"
 
+      - name: Update baseUrl for GitHub OAuth (nip.io)
+        if: ${{ steps.tfvars.outputs.github_auth_enabled == 'true' }}
+        working-directory: ./terraform
+        env:
+          TF_VAR_postgresql_password: ${{ secrets.POSTGRESQL_PASSWORD }}
+          TF_VAR_github_client_id: ${{ secrets.BACKSTAGE_OAUTH_CLIENT_ID }}
+          TF_VAR_github_client_secret: ${{ secrets.BACKSTAGE_OAUTH_CLIENT_SECRET }}
+        run: |
+          for i in $(seq 1 30); do
+            LB_IP=$(kubectl get svc backstage -n backstage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$LB_IP" ] && break
+            echo "Waiting for LoadBalancer IP... ($i/30)"
+            sleep 10
+          done
+          if [ -z "$LB_IP" ]; then
+            echo "Could not get LoadBalancer IP; GitHub OAuth may need manual baseUrl update"
+            exit 0
+          fi
+          BASE_URL="http://backstage.${LB_IP}.nip.io:7007"
+          echo "Using baseUrl: $BASE_URL"
+          terraform apply -auto-approve \
+            -var="resource_group_name=${{ steps.tfvars.outputs.resource_group }}" \
+            -var="deploy_aks=${{ steps.tfvars.outputs.deploy_aks }}" \
+            -var="existing_aks_name=${{ steps.tfvars.outputs.existing_aks_name }}" \
+            -var="existing_aks_rg=${{ steps.tfvars.outputs.existing_aks_rg }}" \
+            -var="location=${{ steps.tfvars.outputs.location }}" \
+            -var="backstage_ingress_host=" \
+            -var="backstage_ingress_enabled=false" \
+            -var="github_auth_enabled=true" \
+            -var="github_client_id=${TF_VAR_github_client_id:-}" \
+            -var="github_client_secret=${TF_VAR_github_client_secret:-}" \
+            -var="backstage_base_url_override=$BASE_URL" \
+            -var="postgresql_password=${TF_VAR_postgresql_password:-}" \
+            -var="kube_config_path=$HOME/.kube/config"
+
       - name: Output Deployment Info
         working-directory: ./terraform
-        run: terraform output -json
+        run: |
+          terraform output -json
+          LB_IP=$(kubectl get svc backstage -n backstage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          if [ -n "$LB_IP" ]; then
+            echo ""
+            echo "::notice:: Backstage URL: http://backstage.${LB_IP}.nip.io:7007"
+            if [ "${{ steps.tfvars.outputs.github_auth_enabled }}" = "true" ]; then
+              echo "::notice:: GitHub OAuth callback: http://backstage.${LB_IP}.nip.io:7007/api/auth/github/handler/frame"
+            fi
+          fi

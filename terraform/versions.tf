@@ -18,10 +18,6 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.12"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
   }
 
   # Uncomment and configure for remote state (recommended for team use)

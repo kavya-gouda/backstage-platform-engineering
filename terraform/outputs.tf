@@ -33,6 +33,6 @@ output "backstage_access_command" {
 }
 
 output "backstage_url" {
-  description = "Backstage URL"
-  value       = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? "https://${var.backstage_ingress_host}" : (local.use_loadbalancer ? "http://${try(data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].ip, data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].hostname, "PENDING_IP")}:7007" : "http://localhost:7007 (run port-forward)")
+  description = "Backstage URL (nip.io when LoadBalancer)"
+  value       = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? "https://${var.backstage_ingress_host}" : (local.use_loadbalancer ? "http://backstage.${try(data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].ip, data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].hostname, "IP_PENDING")}.nip.io:7007" : "http://localhost:7007 (run port-forward)")
 }
