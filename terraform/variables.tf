@@ -78,6 +78,18 @@ variable "backstage_chart_version" {
   default     = "2.6.3"
 }
 
+variable "backstage_image_registry" {
+  description = "Container registry for Backstage image (e.g. ghcr.io)"
+  type        = string
+  default     = "ghcr.io"
+}
+
+variable "backstage_image_repository" {
+  description = "Image repository for Backstage (e.g. org/repo for ghcr.io/org/repo)"
+  type        = string
+  default     = ""
+}
+
 variable "backstage_image_tag" {
   description = "Backstage container image tag"
   type        = string

@@ -23,10 +23,13 @@ aks_vm_size         = "Standard_D2s_v3"
 # ------------------------------------------------------------------------------
 # Backstage
 # ------------------------------------------------------------------------------
-backstage_namespace   = "backstage"
-backstage_release_name = "backstage"
+backstage_namespace     = "backstage"
+backstage_release_name  = "backstage"
 backstage_chart_version = "2.6.3"
-backstage_image_tag   = "latest"
+# Custom image (leave empty to use chart default); CI passes these via -var=
+# backstage_image_registry   = "ghcr.io"
+# backstage_image_repository = "your-org/backstage-platform-engineering"
+backstage_image_tag     = "latest"
 
 # PostgreSQL - set via env: export TF_VAR_postgresql_password="your-secure-password"
 # Or use empty for auto-generated (stored in Terraform state)

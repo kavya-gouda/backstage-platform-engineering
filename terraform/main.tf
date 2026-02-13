@@ -162,6 +162,14 @@ resource "helm_release" "backstage" {
     }
   }
 
+  dynamic "set" {
+    for_each = var.backstage_image_repository != "" ? [1] : []
+    content {
+      name  = "backstage.image.repository"
+      value = "${var.backstage_image_registry}/${var.backstage_image_repository}"
+    }
+  }
+
   set {
     name  = "backstage.image.tag"
     value = var.backstage_image_tag
