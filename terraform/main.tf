@@ -57,9 +57,11 @@ data "azurerm_kubernetes_cluster" "existing" {
 # Use kubeconfig file when set (CI); otherwise use AKS credentials from data source
 # When use_kubeconfig is true, avoid evaluating data sources (cluster may not exist during destroy)
 locals {
-  use_kubeconfig      = var.kube_config_path != ""
-  kube_host           = local.use_kubeconfig ? null : (var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host)
-  backstage_base_url  = (var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "https://${var.backstage_ingress_host}" : "http://localhost:7007"
+  use_kubeconfig           = var.kube_config_path != ""
+  kube_host                = local.use_kubeconfig ? null : (var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].host : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].host)
+  use_loadbalancer         = !var.backstage_ingress_enabled && var.backstage_service_loadbalancer
+  backstage_service_type   = (var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "ClusterIP" : (local.use_loadbalancer ? "LoadBalancer" : "ClusterIP")
+  backstage_base_url       = (var.backstage_ingress_enabled && var.backstage_ingress_host != "") ? "https://${var.backstage_ingress_host}" : "http://localhost:7007"
   kube_client_cert = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_certificate)
   kube_client_key  = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].client_key : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].client_key)
   kube_ca_cert     = local.use_kubeconfig ? null : base64decode(var.deploy_aks ? data.azurerm_kubernetes_cluster.main[0].kube_config[0].cluster_ca_certificate : data.azurerm_kubernetes_cluster.existing[0].kube_config[0].cluster_ca_certificate)
@@ -161,6 +163,12 @@ resource "helm_release" "backstage" {
     value = var.backstage_ingress_enabled
   }
 
+  # Use LoadBalancer when ingress disabled (avoids port-forward timeouts); ClusterIP when ingress handles traffic
+  set {
+    name  = "service.type"
+    value = local.backstage_service_type
+  }
+
   dynamic "set" {
     for_each = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? [1] : []
     content {
@@ -196,4 +204,15 @@ resource "helm_release" "backstage" {
     name  = "backstage.appConfig.backend.baseUrl"
     value = local.backstage_base_url
   }
+}
+
+# ------------------------------------------------------------------------------
+# LoadBalancer IP (when service type is LoadBalancer)
+# ------------------------------------------------------------------------------
+data "kubernetes_service" "backstage" {
+  metadata {
+    name      = var.backstage_release_name
+    namespace = kubernetes_namespace.backstage.metadata[0].name
+  }
+  depends_on = [helm_release.backstage]
 }

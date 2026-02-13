@@ -102,6 +102,12 @@ variable "backstage_ingress_host" {
   default     = ""
 }
 
+variable "backstage_service_loadbalancer" {
+  description = "Use LoadBalancer service type when ingress is disabled (avoids port-forward)"
+  type        = bool
+  default     = true
+}
+
 variable "postgresql_enabled" {
   description = "Deploy PostgreSQL as subchart (recommended for dev/demo)"
   type        = bool

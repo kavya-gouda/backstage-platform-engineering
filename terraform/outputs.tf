@@ -18,12 +18,21 @@ output "backstage_namespace" {
   value       = var.backstage_namespace
 }
 
+output "backstage_loadbalancer_ip" {
+  description = "LoadBalancer external IP (when service type is LoadBalancer)"
+  value       = local.use_loadbalancer ? try(
+    data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].ip,
+    data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].hostname,
+    "pending"
+  ) : null
+}
+
 output "backstage_access_command" {
-  description = "Command to port-forward and access Backstage locally"
-  value       = "kubectl port-forward -n ${var.backstage_namespace} svc/${var.backstage_release_name} 7007:7007"
+  description = "Access Backstage: LoadBalancer (get EXTERNAL-IP) or port-forward (ClusterIP)"
+  value       = local.use_loadbalancer ? "kubectl get svc -n ${var.backstage_namespace} -w  # wait for EXTERNAL-IP, then open http://<EXTERNAL-IP>:7007" : "kubectl port-forward -n ${var.backstage_namespace} svc/${var.backstage_release_name} 7007:7007"
 }
 
 output "backstage_url" {
-  description = "Backstage URL (ingress or port-forward)"
-  value       = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? "https://${var.backstage_ingress_host}" : "http://localhost:7007 (run port-forward command above)"
+  description = "Backstage URL"
+  value       = var.backstage_ingress_enabled && var.backstage_ingress_host != "" ? "https://${var.backstage_ingress_host}" : (local.use_loadbalancer ? "http://${try(data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].ip, data.kubernetes_service.backstage.status[0].load_balancer[0].ingress[0].hostname, "PENDING_IP")}:7007" : "http://localhost:7007 (run port-forward)")
 }

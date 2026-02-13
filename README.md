@@ -53,14 +53,24 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 
 ## Access Backstage
 
-After deploy, run:
+After deploy, get cluster credentials:
 
 ```bash
 az aks get-credentials --resource-group rg-backstage-platform --name backstage-aks
-kubectl port-forward -n backstage svc/backstage 7007:7007
 ```
 
-Open http://localhost:7007
+**Option A – LoadBalancer** (default when ingress is disabled):
+
+```bash
+kubectl get svc -n backstage -w   # Wait for EXTERNAL-IP, then open http://<EXTERNAL-IP>:7007
+```
+
+**Option B – Port-forward** (when using ClusterIP):
+
+```bash
+kubectl port-forward -n backstage svc/backstage 7007:7007
+# Open http://localhost:7007
+```
 
 ## Project Structure
 

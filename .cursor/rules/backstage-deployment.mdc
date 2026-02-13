@@ -12,6 +12,11 @@ alwaysApply: false
 - **PostgreSQL secret**: Use `postgresql.auth.existingSecret` with a Kubernetes secret containing `user-password` and `admin-password` keys (Bitnami chart expects these).
 - **Auth for demo**: `backstage.appConfig.backend.auth.dangerouslyDisableDefaultAuthPolicy: true` allows unauthenticated catalog access when no auth provider is configured.
 
+## Access
+
+- **LoadBalancer** (default when ingress disabled): `backstage_service_loadbalancer = true` avoids port-forward. Run `kubectl get svc -n backstage -w` for EXTERNAL-IP.
+- **Port-forward**: Use when `backstage_service_loadbalancer = false` or ingress disabled.
+
 ## Troubleshooting
 
 - **Readiness 503**: Check `kubectl logs deploy/backstage -c backstage-backend --tail=2000` for startup errors. Ensure DB connectivity and migrations complete.

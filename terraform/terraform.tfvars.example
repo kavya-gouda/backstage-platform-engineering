@@ -36,6 +36,9 @@ postgresql_enabled = true
 backstage_ingress_enabled = false
 backstage_ingress_host    = ""  # e.g., backstage.yourdomain.com
 
+# When ingress disabled: use LoadBalancer (avoids port-forward), or ClusterIP + port-forward
+backstage_service_loadbalancer = true
+
 # ------------------------------------------------------------------------------
 # Tags
 # ------------------------------------------------------------------------------
