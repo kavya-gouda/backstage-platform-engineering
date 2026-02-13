@@ -1,0 +1,72 @@
+# Bootstrap Backstage App (run once)
+# Creates backstage-app/ via create-app in CI (avoids local yarn/network issues)
+# Includes: TechDocs, Software Templates, Catalog, GitHub auth
+name: Bootstrap Backstage App
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_recreate:
+        description: 'Recreate even if backstage-app exists (overwrites)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write  # For git push
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if backstage-app exists
+        id: check
+        run: |
+          if [ -d "backstage-app/packages/backend" ] && [ "${{ github.event.inputs.force_recreate }}" != "true" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Backstage app
+        if: steps.check.outputs.exists == 'false'
+        env:
+          CI: "true"
+        run: |
+          npx @backstage/create-app@latest backstage-app
+
+      - name: Add production app-config overrides
+        if: steps.check.outputs.exists == 'false'
+        working-directory: ./backstage-app
+        run: |
+          if [ -f app-config.production.yaml ]; then
+            cat >> app-config.production.yaml << 'EOF'
+
+          # Production - Terraform/Helm inject baseUrl, DB at deploy time
+          app:
+            title: Backstage Developer Portal
+          EOF
+          fi
+
+      - name: Commit and push
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add backstage-app/
+          git status
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: add Backstage app (TechDocs, Software Templates, Catalog, GitHub auth)"
+            git push
+          fi
+
+      - name: Skipped - app already exists
+        if: steps.check.outputs.exists == 'true'
+        run: echo "backstage-app/ already exists. Set force_recreate=true to overwrite."

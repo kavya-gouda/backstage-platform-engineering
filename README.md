@@ -27,12 +27,15 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 2. **Azure OIDC** – Create service principal and federated credential
 3. **GitHub secrets** – Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and optionally `POSTGRESQL_PASSWORD`, `BACKSTAGE_OAUTH_CLIENT_ID`, `BACKSTAGE_OAUTH_CLIENT_SECRET` (for GitHub sign-in)
 
-## Deploy
+## Deploy (Custom Backstage Image)
 
-1. Go to **Actions → Deploy Backstage to AKS**
-2. Click **Run workflow**
-3. Fill in inputs (or use defaults)
-4. Run
+This project builds a custom Backstage app (TechDocs, Software Templates, Catalog, GitHub auth) in CI—no local build required.
+
+1. **Bootstrap** (run once): **Actions** → **Bootstrap Backstage App** → Run workflow
+2. **Build**: **Actions** → **Build Backstage Image** → Run workflow (or push to `backstage-app/` on main)
+3. **Deploy**: **Actions** → **Deploy Backstage to AKS** → Run workflow
+
+See [docs/BACKSTAGE_APP_SETUP.md](docs/BACKSTAGE_APP_SETUP.md) for details.
 
 ### Workflow inputs
 
@@ -46,7 +49,7 @@ Automation to deploy [Backstage](https://backstage.io/) to an Azure Kubernetes S
 | `github_client_id` | - | GitHub OAuth App Client ID |
 | `github_client_secret` | - | GitHub OAuth App Client Secret (use secret) |
 
-> **GitHub auth setup:** See [docs/GITHUB_AUTH_SETUP.md](docs/GITHUB_AUTH_SETUP.md) for OAuth App creation and callback URL configuration.
+> **GitHub auth:** The built image includes GitHub auth. Add `BACKSTAGE_OAUTH_CLIENT_ID` and `BACKSTAGE_OAUTH_CLIENT_SECRET` to repo secrets, enable GitHub auth in Deploy, and update your GitHub OAuth App callback URL. See [docs/OAUTH_TROUBLESHOOTING.md](docs/OAUTH_TROUBLESHOOTING.md).
 
 ## Destroy
 
@@ -81,9 +84,12 @@ kubectl port-forward -n backstage svc/backstage 7007:7007
 
 ```
 backstage-platform-engineering/
+├── backstage-app/                # Custom Backstage app (created by Bootstrap workflow)
 ├── .github/
 │   ├── GITHUB_ACTIONS_SETUP.md   # Setup guide
 │   └── workflows/
+│       ├── bootstrap-backstage-app.yml  # Creates backstage-app/ (run once)
+│       ├── build-backstage-image.yml    # Builds & pushes image to GHCR
 │       ├── deploy.yml            # Deploy Backstage to AKS
 │       └── destroy.yml           # Destroy infrastructure
 ├── terraform/
