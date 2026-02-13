@@ -44,8 +44,9 @@ jobs:
       - name: Install dependencies
         if: steps.check.outputs.exists == 'false'
         working-directory: ./backstage-app
-        run: |
-          yarn install
+        run: yarn install
+
+      - name: Add production app-config overrides
         if: steps.check.outputs.exists == 'false'
         working-directory: ./backstage-app
         run: |
