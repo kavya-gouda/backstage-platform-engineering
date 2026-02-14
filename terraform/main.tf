@@ -211,10 +211,17 @@ resource "helm_release" "backstage" {
     }
   }
 
-  # Inject GitHub auth env vars and sign-in config from values file
+  # Ensure baked-in app configs are loaded alongside the Helm ConfigMap config.
+  # The Helm chart overrides the container CMD when appConfig is set, so we must
+  # explicitly include the image's config files via backstage.args.
   values = var.github_auth_enabled ? [
     <<-EOT
     backstage:
+      args:
+        - "--config"
+        - "app-config.yaml"
+        - "--config"
+        - "app-config.production.yaml"
       extraEnvVarsSecrets:
         - ${var.backstage_release_name}-github-auth
       appConfig:
@@ -226,7 +233,16 @@ resource "helm_release" "backstage" {
                   resolvers:
                     - resolver: usernameMatchingUserEntityName
     EOT
-  ] : []
+  ] : [
+    <<-EOT
+    backstage:
+      args:
+        - "--config"
+        - "app-config.yaml"
+        - "--config"
+        - "app-config.production.yaml"
+    EOT
+  ]
 
   # Backstage needs time for DB migrations and plugin loading on first startup
   set {
