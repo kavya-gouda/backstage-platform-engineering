@@ -186,69 +186,38 @@ resource "helm_release" "backstage" {
     value = var.postgresql_enabled
   }
 
-  # Auth: disable default policy when GitHub auth enabled; allow guest access otherwise
+  # ---------------------------------------------------------------------------
+  # Dynamic config via environment variables (read by app-config.production.yaml)
+  # This avoids using backstage.appConfig which overrides the container CMD
+  # and breaks the baked-in config files.
+  # ---------------------------------------------------------------------------
+
+  # APP_BASE_URL and BACKEND_BASE_URL - used by app-config.production.yaml
   set {
-    name  = "backstage.appConfig.backend.auth.dangerouslyDisableDefaultAuthPolicy"
-    value = var.github_auth_enabled ? "false" : "true"
+    name  = "backstage.extraEnvVars[0].name"
+    value = "APP_BASE_URL"
+  }
+  set {
+    name  = "backstage.extraEnvVars[0].value"
+    value = local.backstage_base_url
+  }
+  set {
+    name  = "backstage.extraEnvVars[1].name"
+    value = "BACKEND_BASE_URL"
+  }
+  set {
+    name  = "backstage.extraEnvVars[1].value"
+    value = local.backstage_base_url
   }
 
-  # Auth environment: always set when github_auth_enabled, even if secrets are empty
+  # GitHub auth credentials (from Kubernetes secret)
   dynamic "set" {
     for_each = var.github_auth_enabled ? [1] : []
     content {
-      name  = "backstage.appConfig.auth.environment"
-      value = "development"
+      name  = "backstage.extraEnvVarsSecrets[0]"
+      value = kubernetes_secret.github_auth[0].metadata[0].name
     }
   }
-
-  dynamic "set" {
-    for_each = var.github_auth_enabled ? [1] : []
-    content {
-      name  = "backstage.appConfig.auth.providers.github.development.clientId"
-      value = "$${AUTH_GITHUB_CLIENT_ID}"
-    }
-  }
-
-  dynamic "set" {
-    for_each = var.github_auth_enabled ? [1] : []
-    content {
-      name  = "backstage.appConfig.auth.providers.github.development.clientSecret"
-      value = "$${AUTH_GITHUB_CLIENT_SECRET}"
-    }
-  }
-
-  # Ensure baked-in app configs are loaded alongside the Helm ConfigMap config.
-  # The Helm chart overrides the container CMD when appConfig is set, so we must
-  # explicitly include the image's config files via backstage.args.
-  values = var.github_auth_enabled ? [
-    <<-EOT
-    backstage:
-      args:
-        - "--config"
-        - "app-config.yaml"
-        - "--config"
-        - "app-config.production.yaml"
-      extraEnvVarsSecrets:
-        - ${var.backstage_release_name}-github-auth
-      appConfig:
-        auth:
-          providers:
-            github:
-              development:
-                signIn:
-                  resolvers:
-                    - resolver: usernameMatchingUserEntityName
-    EOT
-  ] : [
-    <<-EOT
-    backstage:
-      args:
-        - "--config"
-        - "app-config.yaml"
-        - "--config"
-        - "app-config.production.yaml"
-    EOT
-  ]
 
   # Backstage needs time for DB migrations and plugin loading on first startup
   set {
@@ -265,7 +234,7 @@ resource "helm_release" "backstage" {
     value = var.backstage_ingress_enabled
   }
 
-  # Use LoadBalancer when ingress disabled (avoids port-forward timeouts); ClusterIP when ingress handles traffic
+  # Use LoadBalancer when ingress disabled (avoids port-forward timeouts)
   set {
     name  = "service.type"
     value = local.backstage_service_type
@@ -293,28 +262,6 @@ resource "helm_release" "backstage" {
       name  = "ingress.tls.enabled"
       value = "true"
     }
-  }
-
-  # Required: backend.baseUrl is mandatory for Backstage startup (discovery, auth)
-  # Use ingress host when configured; otherwise http://localhost:7007 for port-forward access
-  set {
-    name  = "backstage.appConfig.app.baseUrl"
-    value = local.backstage_base_url
-  }
-
-  set {
-    name  = "backstage.appConfig.backend.baseUrl"
-    value = local.backstage_base_url
-  }
-
-  # Ensure backend listens on all interfaces (required for LoadBalancer / external access)
-  set {
-    name  = "backstage.appConfig.backend.listen.address"
-    value = "0.0.0.0"
-  }
-  set {
-    name  = "backstage.appConfig.backend.listen.port"
-    value = 7007
   }
 }
 
