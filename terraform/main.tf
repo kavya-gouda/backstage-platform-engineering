@@ -101,7 +101,7 @@ resource "kubernetes_namespace" "backstage" {
 # GitHub OAuth credentials secret (when github_auth_enabled)
 # ------------------------------------------------------------------------------
 resource "kubernetes_secret" "github_auth" {
-  count = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? 1 : 0
+  count = var.github_auth_enabled ? 1 : 0
 
   metadata {
     name      = "${var.backstage_release_name}-github-auth"
@@ -186,8 +186,9 @@ resource "helm_release" "backstage" {
     value = var.github_auth_enabled ? "false" : "true"
   }
 
+  # Auth environment: always set when github_auth_enabled, even if secrets are empty
   dynamic "set" {
-    for_each = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [1] : []
+    for_each = var.github_auth_enabled ? [1] : []
     content {
       name  = "backstage.appConfig.auth.environment"
       value = "development"
@@ -195,7 +196,7 @@ resource "helm_release" "backstage" {
   }
 
   dynamic "set" {
-    for_each = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [1] : []
+    for_each = var.github_auth_enabled ? [1] : []
     content {
       name  = "backstage.appConfig.auth.providers.github.development.clientId"
       value = "$${AUTH_GITHUB_CLIENT_ID}"
@@ -203,7 +204,7 @@ resource "helm_release" "backstage" {
   }
 
   dynamic "set" {
-    for_each = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [1] : []
+    for_each = var.github_auth_enabled ? [1] : []
     content {
       name  = "backstage.appConfig.auth.providers.github.development.clientSecret"
       value = "$${AUTH_GITHUB_CLIENT_SECRET}"
@@ -211,11 +212,11 @@ resource "helm_release" "backstage" {
   }
 
   # Inject GitHub auth env vars and sign-in config from values file
-  values = var.github_auth_enabled && var.github_client_id != "" && var.github_client_secret != "" ? [
+  values = var.github_auth_enabled ? [
     <<-EOT
     backstage:
       extraEnvVarsSecrets:
-        - ${kubernetes_secret.github_auth[0].metadata[0].name}
+        - ${var.backstage_release_name}-github-auth
       appConfig:
         auth:
           providers:
