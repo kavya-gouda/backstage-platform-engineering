@@ -37,6 +37,10 @@ on:
         required: false
         default: false
         type: boolean
+      backstage_image_tag:
+        description: 'Image tag (default: git SHA of current commit, e.g. sha-abc1234)'
+        required: false
+        default: ''
       backstage_image_registry:
         description: 'Backstage image registry (default: ghcr.io for built image)'
         required: false
@@ -114,6 +118,15 @@ jobs:
       - name: Prepare Terraform Variables
         id: tfvars
         run: |
+          # Use provided image tag, or default to git SHA (matches build workflow's sha tag)
+          SHA_TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          IMAGE_TAG="${{ github.event.inputs.backstage_image_tag || '' }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG="$SHA_TAG"
+          fi
+          echo "backstage_image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "::notice:: Using image tag: $IMAGE_TAG"
+
           echo "resource_group=${{ github.event.inputs.resource_group || 'rg-backstage-platform' }}" >> $GITHUB_OUTPUT
           echo "deploy_aks=${{ github.event.inputs.deploy_aks }}" >> $GITHUB_OUTPUT
           echo "existing_aks_name=${{ github.event.inputs.existing_aks_name }}" >> $GITHUB_OUTPUT
@@ -149,6 +162,7 @@ jobs:
             -var="backstage_base_url_override=${{ steps.tfvars.outputs.backstage_base_url_override }}" \
             -var="backstage_image_registry=${{ steps.tfvars.outputs.backstage_image_registry }}" \
             -var="backstage_image_repository=${{ steps.tfvars.outputs.backstage_image_repository }}" \
+            -var="backstage_image_tag=${{ steps.tfvars.outputs.backstage_image_tag }}" \
             -var="postgresql_password=${TF_VAR_postgresql_password:-}"
 
       - name: Terraform Apply (Phase 1b - AKS infrastructure)
@@ -176,6 +190,7 @@ jobs:
             -var="backstage_base_url_override=${{ steps.tfvars.outputs.backstage_base_url_override }}" \
             -var="backstage_image_registry=${{ steps.tfvars.outputs.backstage_image_registry }}" \
             -var="backstage_image_repository=${{ steps.tfvars.outputs.backstage_image_repository }}" \
+            -var="backstage_image_tag=${{ steps.tfvars.outputs.backstage_image_tag }}" \
             -var="postgresql_password=${TF_VAR_postgresql_password:-}"
 
       - name: Get AKS credentials
@@ -215,6 +230,7 @@ jobs:
             -var="backstage_base_url_override=${{ steps.tfvars.outputs.backstage_base_url_override }}" \
             -var="backstage_image_registry=${{ steps.tfvars.outputs.backstage_image_registry }}" \
             -var="backstage_image_repository=${{ steps.tfvars.outputs.backstage_image_repository }}" \
+            -var="backstage_image_tag=${{ steps.tfvars.outputs.backstage_image_tag }}" \
             -var="postgresql_password=${TF_VAR_postgresql_password:-}" \
             -var="kube_config_path=$HOME/.kube/config"
 
@@ -251,6 +267,7 @@ jobs:
             -var="backstage_base_url_override=$BASE_URL" \
             -var="backstage_image_registry=${{ steps.tfvars.outputs.backstage_image_registry }}" \
             -var="backstage_image_repository=${{ steps.tfvars.outputs.backstage_image_repository }}" \
+            -var="backstage_image_tag=${{ steps.tfvars.outputs.backstage_image_tag }}" \
             -var="postgresql_password=${TF_VAR_postgresql_password:-}" \
             -var="kube_config_path=$HOME/.kube/config"
 

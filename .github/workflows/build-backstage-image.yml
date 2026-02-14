@@ -105,7 +105,11 @@ jobs:
 
       - name: Output image
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}:${{ github.event.inputs.image_tag || 'latest' }}"
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          echo "::notice:: Image pushed (public): $IMAGE"
+          SHA_TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          IMAGE="${{ env.REGISTRY }}/${{ github.repository }}"
+          echo "image=${IMAGE}:${SHA_TAG}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
+          echo "::notice:: Image pushed: ${IMAGE}:${SHA_TAG}"
+          echo "::notice:: Image also tagged: ${IMAGE}:${{ github.event.inputs.image_tag || 'latest' }}"
+          echo "::notice:: Use tag '${SHA_TAG}' in Deploy workflow for this build"
         id: image

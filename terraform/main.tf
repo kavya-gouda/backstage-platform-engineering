@@ -176,6 +176,11 @@ resource "helm_release" "backstage" {
   }
 
   set {
+    name  = "backstage.image.pullPolicy"
+    value = "Always"
+  }
+
+  set {
     name  = "postgresql.enabled"
     value = var.postgresql_enabled
   }
