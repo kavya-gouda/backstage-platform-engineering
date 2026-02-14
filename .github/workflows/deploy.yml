@@ -38,9 +38,9 @@ on:
         default: false
         type: boolean
       backstage_image_tag:
-        description: 'Image tag (default: git SHA of current commit, e.g. sha-abc1234)'
+        description: 'Image tag (default: latest; use sha-<commit> from Build workflow for a specific build)'
         required: false
-        default: ''
+        default: 'latest'
       backstage_image_registry:
         description: 'Backstage image registry (default: ghcr.io for built image)'
         required: false
@@ -118,12 +118,8 @@ jobs:
       - name: Prepare Terraform Variables
         id: tfvars
         run: |
-          # Use provided image tag, or default to git SHA (matches build workflow's sha tag)
-          SHA_TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
-          IMAGE_TAG="${{ github.event.inputs.backstage_image_tag || '' }}"
-          if [ -z "$IMAGE_TAG" ]; then
-            IMAGE_TAG="$SHA_TAG"
-          fi
+          # Use provided image tag (default: latest). For a specific build, paste the sha-<commit> tag from the Build workflow output.
+          IMAGE_TAG="${{ github.event.inputs.backstage_image_tag || 'latest' }}"
           echo "backstage_image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "::notice:: Using image tag: $IMAGE_TAG"
 

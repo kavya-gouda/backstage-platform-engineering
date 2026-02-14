@@ -152,7 +152,8 @@ resource "helm_release" "backstage" {
   version          = var.backstage_chart_version
   create_namespace = false
   wait             = true
-  timeout          = 600
+  timeout          = 900
+  replace          = true  # Replace failed releases instead of erroring
 
   dynamic "set" {
     for_each = var.postgresql_enabled ? [1] : []
