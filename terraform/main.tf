@@ -24,7 +24,8 @@ resource "azurerm_kubernetes_cluster" "main" {
   location            = azurerm_resource_group.main[0].location
   resource_group_name = azurerm_resource_group.main[0].name
   dns_prefix          = var.aks_cluster_name
-  kubernetes_version  = "1.32"
+  kubernetes_version  = "1.35"
+  oidc_issuer_enabled = true
 
   default_node_pool {
     name       = "default"
@@ -237,6 +238,7 @@ resource "helm_release" "backstage" {
     name  = "backstage.extraEnvVars[1].value"
     value = local.backstage_base_url
   }
+
 
   # GitHub auth credentials (from Kubernetes secret)
   dynamic "set" {

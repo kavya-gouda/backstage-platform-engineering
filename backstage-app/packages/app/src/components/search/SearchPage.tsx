@@ -27,10 +27,14 @@ import { useApi } from '@backstage/core-plugin-api';
 const useStyles = makeStyles((theme: Theme) => ({
   bar: {
     padding: theme.spacing(1, 0),
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: theme.shadows[1],
   },
   filters: {
     padding: theme.spacing(2),
     marginTop: theme.spacing(2),
+    borderRadius: theme.shape.borderRadius,
+    border: `1px solid ${theme.palette.divider}`,
   },
   filter: {
     '& + &': {

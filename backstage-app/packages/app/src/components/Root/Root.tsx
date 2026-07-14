@@ -1,5 +1,5 @@
 import { PropsWithChildren } from 'react';
-import { makeStyles } from '@material-ui/core';
+import { makeStyles, Theme } from '@material-ui/core';
 import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
@@ -29,7 +29,7 @@ import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
 import { NotificationsSidebarItem } from '@backstage/plugin-notifications';
 
-const useSidebarLogoStyles = makeStyles({
+const useSidebarLogoStyles = makeStyles((theme: Theme) => ({
   root: {
     width: sidebarConfig.drawerWidthClosed,
     height: 3 * sidebarConfig.logoHeight,
@@ -37,12 +37,13 @@ const useSidebarLogoStyles = makeStyles({
     flexFlow: 'row nowrap',
     alignItems: 'center',
     marginBottom: -14,
+    backgroundColor: theme.palette.primary.dark,
   },
   link: {
     width: sidebarConfig.drawerWidthClosed,
     marginLeft: 24,
   },
-});
+}));
 
 const SidebarLogo = () => {
   const classes = useSidebarLogoStyles();

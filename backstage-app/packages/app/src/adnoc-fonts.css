@@ -1,0 +1,29 @@
+/* ADNOC Sans font faces — requires font files in public/fonts/ */
+@font-face {
+  font-family: 'ADNOC Sans';
+  src: url('/fonts/ADNOCSANS_LT.TTF') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ADNOC Sans';
+  src: url('/fonts/ADNOCSANS_RG.TTF') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ADNOC Sans';
+  src: url('/fonts/ADNOCSANS_MD.TTF') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ADNOC Sans';
+  src: url('/fonts/ADNOCSANS.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

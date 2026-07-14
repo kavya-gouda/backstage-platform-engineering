@@ -1,14 +1,14 @@
-import { makeStyles } from '@material-ui/core';
+import { makeStyles, Theme } from '@material-ui/core';
 
-const useStyles = makeStyles({
+const useStyles = makeStyles((theme: Theme) => ({
   svg: {
     width: 'auto',
     height: 30,
   },
   path: {
-    fill: '#7df3e1',
+    fill: theme.palette.primary.contrastText,
   },
-});
+}));
 const LogoFull = () => {
   const classes = useStyles();
 

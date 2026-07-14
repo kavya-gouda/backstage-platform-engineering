@@ -29,7 +29,9 @@ backend:
 auth:
   environment: production
   providers:
-    guest: {}
+    #guest: {}
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
     github:
       production:
         clientId: ${AUTH_GITHUB_CLIENT_ID}
@@ -38,6 +40,18 @@ auth:
           resolvers:
             - resolver: usernameMatchingUserEntityName
 
+integrations:
+  github:
+    - host: github.com
+      token: ${BACKSTAGE_SCAFFOLDER_GITHUB_TOKEN} # This token will be injected as an environment variable in your AKS deployment
+  
+techdocs:
+  builder: 'local' # Alternatives - 'external'
+  generator:
+    runIn: 'docker' # Alternatives - 'local'
+  publisher:
+    type: 'local' # Alternatives include 'googleGcs', 'awsS3', and other supported publishers. See configuration documentation for the full list.
+    
 catalog:
   locations:
     - type: file
@@ -47,6 +61,19 @@ catalog:
       rules:
         - allow: [Template]
     - type: file
+      target: ./examples/adnoc-template/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
       target: ./examples/org.yaml
       rules:
         - allow: [User, Group]
+  providers:
+    githubOrg:
+      id: production
+      githubUrl: https://github.com
+      orgs: ['dxcorg']
+      schedule:
+        initialDelay: { seconds: 30 }
+        frequency: { minutes: 30 }  # hours: 1
+        timeout: { minutes: 3 }

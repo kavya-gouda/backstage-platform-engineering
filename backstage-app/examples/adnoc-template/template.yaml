@@ -1,0 +1,142 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-angular-webapp-terraform
+  title: Azure Web App (Angular + Node.js) with Terraform
+  description: Scaffolds a new Angular frontend application and provisions an Azure Linux App Service using automated Terraform CI/CD.
+  tags:
+    - angular
+    - azure
+    - terraform
+    - nodejs
+spec:
+  owner: user:guest
+  type: service
+
+  # 1. User Input Form
+  parameters:
+    - title: Application Information
+      required:
+        - name
+        - description
+      properties:
+        name:
+          title: Component Name
+          type: string
+          description: Unique name for your application (must be alphanumeric and hyphens only).
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        description:
+          title: Description
+          type: string
+          description: A brief explanation of what this frontend application does.
+
+    - title: Azure & Runtime Configuration
+      required:
+        - webAppName
+        - runtime
+        - location
+        - sku
+      properties:
+        webAppName:
+          title: Azure Web App Name
+          type: string
+          description: Globally unique name for the Azure App Service (e.g., myorg-frontend-prod).
+        runtime:
+          title: Runtime Stack
+          type: string
+          description: The application stack to deploy on Azure App Service.
+          default: "node|24-lts"
+          enum:
+            - "node|24-lts"
+            - "node|20-lts"
+            - "dotnet|8.0"
+            - "dotnet|9.0"
+          enumNames:
+            - "Node.js 24 LTS"
+            - "Node.js 20 LTS"
+            - ".NET 8.0"
+            - ".NET 9.0"
+        location:
+          title: Azure Region
+          type: string
+          default: "westeurope"
+          enum:
+            - "westeurope"
+            - "eastus"
+            - "northeurope"
+            - "uaenorth"
+          enumNames:
+            - "West Europe"
+            - "East US"
+            - "North Europe"
+            - "UAE North"
+        sku:
+          title: App Service Plan SKU
+          type: string
+          default: "B1"
+          enum:
+            - "F1"
+            - "B1"
+            - "P1v3"
+          enumNames:
+            - "Free (F1 - Dev/Test only)"
+            - "Basic (B1 - Small Workloads)"
+            - "Premium V3 (P1v3 - Production)"
+
+    - title: Repository Location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+            allowedOwners:
+              - dxcorg
+
+  # 2. Execution Steps
+  steps:
+    - id: fetch-skeleton
+      name: Fetch and Populate Template Code
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          webAppName: ${{ parameters.webAppName }}
+          runtime: ${{ parameters.runtime }}
+          location: ${{ parameters.location }}
+          sku: ${{ parameters.sku }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          owner: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
+
+    - id: publish-repo
+      name: Publish Repository to GitHub
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        topics: ['backstage', 'angular', 'azure', 'terraform']
+
+    - id: register-catalog
+      name: Register in Backstage Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish-repo'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  # 3. Output Links
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish-repo'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register-catalog'].output.entityRef }}

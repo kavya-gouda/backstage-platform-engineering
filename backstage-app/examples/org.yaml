@@ -10,9 +10,20 @@ spec:
 apiVersion: backstage.io/v1alpha1
 kind: User
 metadata:
-  name: kavya-gouda
+  name: Mostafaa-Elkhouly
 spec:
-  memberOf: [guests]
+  profile:
+    displayName: Mostafa Elkhouly
+  memberOf: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: ahmed-shereif
+spec:
+  profile:
+    displayName: Ahmed Sherif
+  memberOf: []
 ---
 # https://backstage.io/docs/features/software-catalog/descriptor-format#kind-group
 apiVersion: backstage.io/v1alpha1
